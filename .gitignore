@@ -1,0 +1,5 @@
+node_modules
+.env
+admin-panel/node_modules
+admin-panel/dist
+mobile-app

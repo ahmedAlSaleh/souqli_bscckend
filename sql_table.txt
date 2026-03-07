@@ -1,0 +1,371 @@
+CREATE TABLE `users` (
+  `id` bigint PRIMARY KEY AUTO_INCREMENT,
+  `full_name` varchar(120) NOT NULL,
+  `email` varchar(190) UNIQUE,
+  `phone` varchar(30) UNIQUE,
+  `password_hash` varchar(255) NOT NULL,
+  `email_verified_at` datetime,
+  `is_active` boolean DEFAULT true,
+  `created_at` datetime,
+  `updated_at` datetime,
+  `deleted_at` datetime
+);
+
+CREATE TABLE `user_addresses` (
+  `id` bigint PRIMARY KEY AUTO_INCREMENT,
+  `user_id` bigint NOT NULL,
+  `label` varchar(60),
+  `country` varchar(80),
+  `city` varchar(80),
+  `street` varchar(190),
+  `postal_code` varchar(20),
+  `notes` varchar(255),
+  `is_default` boolean DEFAULT false,
+  `created_at` datetime,
+  `updated_at` datetime,
+  `deleted_at` datetime
+);
+
+CREATE TABLE `roles` (
+  `id` int PRIMARY KEY AUTO_INCREMENT,
+  `name` varchar(80) UNIQUE NOT NULL,
+  `description` varchar(190),
+  `created_at` datetime,
+  `updated_at` datetime
+);
+
+CREATE TABLE `permissions` (
+  `id` int PRIMARY KEY AUTO_INCREMENT,
+  `code` varchar(120) UNIQUE NOT NULL,
+  `description` varchar(190),
+  `created_at` datetime,
+  `updated_at` datetime
+);
+
+CREATE TABLE `role_permissions` (
+  `role_id` int NOT NULL,
+  `permission_id` int NOT NULL
+);
+
+CREATE TABLE `user_roles` (
+  `user_id` bigint NOT NULL,
+  `role_id` int NOT NULL
+);
+
+CREATE TABLE `categories` (
+  `id` bigint PRIMARY KEY AUTO_INCREMENT,
+  `parent_id` bigint,
+  `name` varchar(120) NOT NULL,
+  `slug` varchar(160) UNIQUE NOT NULL,
+  `is_active` boolean DEFAULT true,
+  `sort_order` int DEFAULT 0,
+  `created_at` datetime,
+  `updated_at` datetime,
+  `deleted_at` datetime
+);
+
+CREATE TABLE `products` (
+  `id` bigint PRIMARY KEY AUTO_INCREMENT,
+  `category_id` bigint NOT NULL,
+  `name` varchar(190) NOT NULL,
+  `slug` varchar(220) UNIQUE NOT NULL,
+  `description` text,
+  `base_price` decimal(10,2) NOT NULL DEFAULT 0,
+  `currency` varchar(10) DEFAULT 'USD',
+  `sku` varchar(80) UNIQUE,
+  `is_active` boolean DEFAULT true,
+  `created_at` datetime,
+  `updated_at` datetime,
+  `deleted_at` datetime
+);
+
+CREATE TABLE `product_images` (
+  `id` bigint PRIMARY KEY AUTO_INCREMENT,
+  `product_id` bigint NOT NULL,
+  `url` varchar(500) NOT NULL,
+  `alt` varchar(190),
+  `is_primary` boolean DEFAULT false,
+  `sort_order` int DEFAULT 0,
+  `created_at` datetime,
+  `deleted_at` datetime
+);
+
+CREATE TABLE `product_stock` (
+  `product_id` bigint PRIMARY KEY,
+  `quantity` int DEFAULT 0,
+  `reserved_quantity` int DEFAULT 0,
+  `updated_at` datetime
+);
+
+CREATE TABLE `product_variants` (
+  `id` bigint PRIMARY KEY AUTO_INCREMENT,
+  `product_id` bigint NOT NULL,
+  `sku` varchar(100) UNIQUE,
+  `price` decimal(10,2),
+  `stock` int DEFAULT 0,
+  `is_active` boolean DEFAULT true,
+  `created_at` datetime,
+  `updated_at` datetime,
+  `deleted_at` datetime
+);
+
+CREATE TABLE `attributes` (
+  `id` bigint PRIMARY KEY AUTO_INCREMENT,
+  `code` varchar(80) UNIQUE NOT NULL,
+  `name` varchar(120) NOT NULL,
+  `data_type` varchar(20) NOT NULL,
+  `unit` varchar(30),
+  `created_at` datetime,
+  `updated_at` datetime,
+  `deleted_at` datetime
+);
+
+CREATE TABLE `attribute_options` (
+  `id` bigint PRIMARY KEY AUTO_INCREMENT,
+  `attribute_id` bigint NOT NULL,
+  `value` varchar(120) NOT NULL,
+  `sort_order` int DEFAULT 0
+);
+
+CREATE TABLE `category_attributes` (
+  `id` bigint PRIMARY KEY AUTO_INCREMENT,
+  `category_id` bigint NOT NULL,
+  `attribute_id` bigint NOT NULL,
+  `is_required` boolean DEFAULT false
+);
+
+CREATE TABLE `product_attribute_values` (
+  `id` bigint PRIMARY KEY AUTO_INCREMENT,
+  `product_id` bigint NOT NULL,
+  `attribute_id` bigint NOT NULL,
+  `value_text` varchar(255),
+  `value_number` decimal(12,3),
+  `value_boolean` boolean,
+  `value_date` date,
+  `option_id` bigint,
+  `created_at` datetime,
+  `updated_at` datetime
+);
+
+CREATE TABLE `carts` (
+  `id` bigint PRIMARY KEY AUTO_INCREMENT,
+  `user_id` bigint,
+  `session_id` varchar(120),
+  `status` varchar(20) DEFAULT 'ACTIVE',
+  `created_at` datetime,
+  `updated_at` datetime
+);
+
+CREATE TABLE `cart_items` (
+  `id` bigint PRIMARY KEY AUTO_INCREMENT,
+  `cart_id` bigint NOT NULL,
+  `product_id` bigint NOT NULL,
+  `variant_id` bigint,
+  `quantity` int NOT NULL DEFAULT 1,
+  `unit_price` decimal(10,2) NOT NULL,
+  `created_at` datetime,
+  `updated_at` datetime
+);
+
+CREATE TABLE `order_statuses` (
+  `id` int PRIMARY KEY AUTO_INCREMENT,
+  `code` varchar(40) UNIQUE NOT NULL,
+  `name` varchar(80) NOT NULL
+);
+
+CREATE TABLE `orders` (
+  `id` bigint PRIMARY KEY AUTO_INCREMENT,
+  `user_id` bigint NOT NULL,
+  `status_id` int NOT NULL,
+  `address_id` bigint,
+  `cart_id` bigint,
+  `total_amount` decimal(10,2) NOT NULL DEFAULT 0,
+  `currency` varchar(10) DEFAULT 'USD',
+  `notes` varchar(255),
+  `created_at` datetime,
+  `updated_at` datetime,
+  `deleted_at` datetime
+);
+
+CREATE TABLE `order_items` (
+  `id` bigint PRIMARY KEY AUTO_INCREMENT,
+  `order_id` bigint NOT NULL,
+  `product_id` bigint NOT NULL,
+  `variant_id` bigint,
+  `quantity` int NOT NULL DEFAULT 1,
+  `unit_price` decimal(10,2) NOT NULL,
+  `line_total` decimal(10,2) NOT NULL
+);
+
+CREATE TABLE `payments` (
+  `id` bigint PRIMARY KEY AUTO_INCREMENT,
+  `order_id` bigint NOT NULL,
+  `payment_method` varchar(60),
+  `transaction_id` varchar(190),
+  `amount` decimal(10,2) NOT NULL,
+  `currency` varchar(10) DEFAULT 'USD',
+  `status` varchar(40),
+  `created_at` datetime
+);
+
+CREATE TABLE `pages` (
+  `id` bigint PRIMARY KEY AUTO_INCREMENT,
+  `key` varchar(60) UNIQUE NOT NULL,
+  `title` varchar(190) NOT NULL,
+  `content` longtext NOT NULL,
+  `updated_at` datetime
+);
+
+CREATE TABLE `activity_logs` (
+  `id` bigint PRIMARY KEY AUTO_INCREMENT,
+  `user_id` bigint,
+  `action` varchar(120) NOT NULL,
+  `entity_type` varchar(120) NOT NULL,
+  `entity_id` bigint,
+  `meta_json` longtext,
+  `created_at` datetime
+);
+
+CREATE INDEX `users_index_0` ON `users` (`email`);
+
+CREATE INDEX `users_index_1` ON `users` (`phone`);
+
+CREATE INDEX `users_index_2` ON `users` (`is_active`);
+
+CREATE INDEX `user_addresses_index_3` ON `user_addresses` (`user_id`);
+
+CREATE INDEX `user_addresses_index_4` ON `user_addresses` (`is_default`);
+
+CREATE UNIQUE INDEX `role_permissions_index_5` ON `role_permissions` (`role_id`, `permission_id`);
+
+CREATE UNIQUE INDEX `user_roles_index_6` ON `user_roles` (`user_id`, `role_id`);
+
+CREATE INDEX `categories_index_7` ON `categories` (`parent_id`);
+
+CREATE INDEX `categories_index_8` ON `categories` (`slug`);
+
+CREATE INDEX `categories_index_9` ON `categories` (`is_active`);
+
+CREATE INDEX `categories_index_10` ON `categories` (`sort_order`);
+
+CREATE INDEX `products_index_11` ON `products` (`category_id`);
+
+CREATE INDEX `products_index_12` ON `products` (`slug`);
+
+CREATE INDEX `products_index_13` ON `products` (`is_active`);
+
+CREATE INDEX `products_index_14` ON `products` (`base_price`);
+
+CREATE INDEX `product_images_index_15` ON `product_images` (`product_id`);
+
+CREATE INDEX `product_images_index_16` ON `product_images` (`is_primary`);
+
+CREATE INDEX `product_images_index_17` ON `product_images` (`sort_order`);
+
+CREATE INDEX `product_variants_index_18` ON `product_variants` (`product_id`);
+
+CREATE INDEX `product_variants_index_19` ON `product_variants` (`is_active`);
+
+CREATE INDEX `attribute_options_index_20` ON `attribute_options` (`attribute_id`);
+
+CREATE UNIQUE INDEX `category_attributes_index_21` ON `category_attributes` (`category_id`, `attribute_id`);
+
+CREATE UNIQUE INDEX `product_attribute_values_index_22` ON `product_attribute_values` (`product_id`, `attribute_id`);
+
+CREATE INDEX `product_attribute_values_index_23` ON `product_attribute_values` (`attribute_id`);
+
+CREATE INDEX `product_attribute_values_index_24` ON `product_attribute_values` (`option_id`);
+
+CREATE INDEX `carts_index_25` ON `carts` (`user_id`);
+
+CREATE INDEX `carts_index_26` ON `carts` (`session_id`);
+
+CREATE INDEX `carts_index_27` ON `carts` (`status`);
+
+CREATE INDEX `cart_items_index_28` ON `cart_items` (`cart_id`);
+
+CREATE INDEX `cart_items_index_29` ON `cart_items` (`product_id`);
+
+CREATE INDEX `cart_items_index_30` ON `cart_items` (`variant_id`);
+
+CREATE INDEX `orders_index_31` ON `orders` (`user_id`);
+
+CREATE INDEX `orders_index_32` ON `orders` (`status_id`);
+
+CREATE INDEX `orders_index_33` ON `orders` (`created_at`);
+
+CREATE INDEX `order_items_index_34` ON `order_items` (`order_id`);
+
+CREATE INDEX `order_items_index_35` ON `order_items` (`product_id`);
+
+CREATE INDEX `order_items_index_36` ON `order_items` (`variant_id`);
+
+CREATE INDEX `payments_index_37` ON `payments` (`order_id`);
+
+CREATE INDEX `payments_index_38` ON `payments` (`transaction_id`);
+
+CREATE INDEX `payments_index_39` ON `payments` (`status`);
+
+CREATE INDEX `activity_logs_index_40` ON `activity_logs` (`user_id`);
+
+CREATE INDEX `activity_logs_index_41` ON `activity_logs` (`entity_type`, `entity_id`);
+
+CREATE INDEX `activity_logs_index_42` ON `activity_logs` (`created_at`);
+
+ALTER TABLE `user_addresses` ADD FOREIGN KEY (`user_id`) REFERENCES `users` (`id`);
+
+ALTER TABLE `role_permissions` ADD FOREIGN KEY (`role_id`) REFERENCES `roles` (`id`);
+
+ALTER TABLE `role_permissions` ADD FOREIGN KEY (`permission_id`) REFERENCES `permissions` (`id`);
+
+ALTER TABLE `user_roles` ADD FOREIGN KEY (`user_id`) REFERENCES `users` (`id`);
+
+ALTER TABLE `user_roles` ADD FOREIGN KEY (`role_id`) REFERENCES `roles` (`id`);
+
+ALTER TABLE `categories` ADD FOREIGN KEY (`parent_id`) REFERENCES `categories` (`id`);
+
+ALTER TABLE `products` ADD FOREIGN KEY (`category_id`) REFERENCES `categories` (`id`);
+
+ALTER TABLE `product_images` ADD FOREIGN KEY (`product_id`) REFERENCES `products` (`id`);
+
+ALTER TABLE `product_stock` ADD FOREIGN KEY (`product_id`) REFERENCES `products` (`id`);
+
+ALTER TABLE `product_variants` ADD FOREIGN KEY (`product_id`) REFERENCES `products` (`id`);
+
+ALTER TABLE `attribute_options` ADD FOREIGN KEY (`attribute_id`) REFERENCES `attributes` (`id`);
+
+ALTER TABLE `category_attributes` ADD FOREIGN KEY (`category_id`) REFERENCES `categories` (`id`);
+
+ALTER TABLE `category_attributes` ADD FOREIGN KEY (`attribute_id`) REFERENCES `attributes` (`id`);
+
+ALTER TABLE `product_attribute_values` ADD FOREIGN KEY (`product_id`) REFERENCES `products` (`id`);
+
+ALTER TABLE `product_attribute_values` ADD FOREIGN KEY (`attribute_id`) REFERENCES `attributes` (`id`);
+
+ALTER TABLE `product_attribute_values` ADD FOREIGN KEY (`option_id`) REFERENCES `attribute_options` (`id`);
+
+ALTER TABLE `carts` ADD FOREIGN KEY (`user_id`) REFERENCES `users` (`id`);
+
+ALTER TABLE `cart_items` ADD FOREIGN KEY (`cart_id`) REFERENCES `carts` (`id`);
+
+ALTER TABLE `cart_items` ADD FOREIGN KEY (`product_id`) REFERENCES `products` (`id`);
+
+ALTER TABLE `cart_items` ADD FOREIGN KEY (`variant_id`) REFERENCES `product_variants` (`id`);
+
+ALTER TABLE `orders` ADD FOREIGN KEY (`user_id`) REFERENCES `users` (`id`);
+
+ALTER TABLE `orders` ADD FOREIGN KEY (`status_id`) REFERENCES `order_statuses` (`id`);
+
+ALTER TABLE `orders` ADD FOREIGN KEY (`address_id`) REFERENCES `user_addresses` (`id`);
+
+ALTER TABLE `orders` ADD FOREIGN KEY (`cart_id`) REFERENCES `carts` (`id`);
+
+ALTER TABLE `order_items` ADD FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`);
+
+ALTER TABLE `order_items` ADD FOREIGN KEY (`product_id`) REFERENCES `products` (`id`);
+
+ALTER TABLE `order_items` ADD FOREIGN KEY (`variant_id`) REFERENCES `product_variants` (`id`);
+
+ALTER TABLE `payments` ADD FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`);
+
+ALTER TABLE `activity_logs` ADD FOREIGN KEY (`user_id`) REFERENCES `users` (`id`);
