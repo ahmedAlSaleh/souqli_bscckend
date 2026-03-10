@@ -1,0 +1,50 @@
+name: Deploy Backend to VPS
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      RUN_DB_MIGRATIONS: ${{ secrets.RUN_DB_MIGRATIONS }}
+      RUN_ADMIN_SEEDER: ${{ secrets.RUN_ADMIN_SEEDER }}
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          fingerprint: ${{ secrets.VPS_HOST_FINGERPRINT }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+
+            cd /var/www/souqli_bscckend
+            git fetch --all --prune
+            git checkout main
+            git pull --ff-only origin main
+
+            npm ci --omit=dev
+
+            if [ "${RUN_DB_MIGRATIONS:-0}" = "1" ] && npm run | grep -q "migrate"; then
+              npm run migrate
+            fi
+
+            if [ "${RUN_ADMIN_SEEDER:-0}" = "1" ] && npm run | grep -q "seed:admin"; then
+              npm run seed:admin
+            fi
+
+            if [ -f ecosystem.config.cjs ]; then
+              pm2 startOrReload ecosystem.config.cjs --env production
+            else
+              pm2 reload souqli-api || pm2 start src/server.js --name souqli-api
+            fi
+
+            pm2 save
+            curl -f http://127.0.0.1:3000/ >/dev/null
