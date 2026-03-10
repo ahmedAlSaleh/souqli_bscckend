@@ -1,114 +1,170 @@
+const { randomUUID } = require('crypto');
 const pool = require('../config/db');
 
+// Real schema source table is `user` (not `users`).
+// We expose alias fields (`full_name`, `phone`, `password_hash`, `is_active`, `deleted_at`)
+// so existing services can keep working while using the real DB structure.
+const USER_SELECT = `
+  SELECT
+    u.id,
+    u.email,
+    u.userName,
+    u.phoneNumber,
+    u.password,
+    u.createdAt,
+    u.isVerified,
+    u.role,
+    u.locationId,
+    u.userName AS full_name,
+    u.phoneNumber AS phone,
+    u.password AS password_hash,
+    1 AS is_active,
+    NULL AS deleted_at,
+    u.createdAt AS created_at,
+    u.createdAt AS updated_at
+  FROM \`user\` u
+`;
+
+const normalize = (row) => row || null;
+
+const toCreatePayload = (data = {}) => {
+  const fullName = data.full_name ?? data.userName ?? null;
+  const phone = data.phone ?? data.phoneNumber ?? null;
+  const passwordHash = data.password_hash ?? data.password ?? null;
+  return {
+    id: data.id || randomUUID(),
+    email: data.email || null,
+    userName: fullName,
+    phoneNumber: phone,
+    password: passwordHash,
+    isVerified: data.isVerified !== undefined ? Number(Boolean(data.isVerified)) : 0,
+    role: data.role || 'user',
+    locationId: data.locationId || null
+  };
+};
+
 const findByEmail = async (email) => {
-  const [rows] = await pool.query('SELECT * FROM users WHERE email = ? LIMIT 1', [email]);
-  return rows[0];
+  const [rows] = await pool.query(`${USER_SELECT} WHERE u.email = ? LIMIT 1`, [email]);
+  return normalize(rows[0]);
 };
 
 const findByEmailExcludingId = async (email, id) => {
   const [rows] = await pool.query(
-    'SELECT * FROM users WHERE email = ? AND id != ? LIMIT 1',
-    [email, id]
+    `${USER_SELECT} WHERE u.email = ? AND u.id <> ? LIMIT 1`,
+    [email, String(id)]
   );
-  return rows[0];
+  return normalize(rows[0]);
 };
 
 const findByPhone = async (phone) => {
-  const [rows] = await pool.query('SELECT * FROM users WHERE phone = ? LIMIT 1', [phone]);
-  return rows[0];
+  const [rows] = await pool.query(`${USER_SELECT} WHERE u.phoneNumber = ? LIMIT 1`, [phone]);
+  return normalize(rows[0]);
 };
 
 const findByPhoneExcludingId = async (phone, id) => {
   const [rows] = await pool.query(
-    'SELECT * FROM users WHERE phone = ? AND id != ? LIMIT 1',
-    [phone, id]
+    `${USER_SELECT} WHERE u.phoneNumber = ? AND u.id <> ? LIMIT 1`,
+    [phone, String(id)]
   );
-  return rows[0];
+  return normalize(rows[0]);
 };
 
 const findByEmailOrPhone = async (identifier) => {
   const [rows] = await pool.query(
-    'SELECT * FROM users WHERE email = ? OR phone = ? LIMIT 1',
+    `${USER_SELECT} WHERE u.email = ? OR u.phoneNumber = ? LIMIT 1`,
     [identifier, identifier]
   );
-  return rows[0];
+  return normalize(rows[0]);
 };
 
 const findById = async (id) => {
-  const [rows] = await pool.query('SELECT * FROM users WHERE id = ? LIMIT 1', [id]);
-  return rows[0];
+  const [rows] = await pool.query(`${USER_SELECT} WHERE u.id = ? LIMIT 1`, [String(id)]);
+  return normalize(rows[0]);
 };
 
-const create = async ({ full_name, email, phone, password_hash }) => {
-  const [result] = await pool.query(
-    'INSERT INTO users (full_name, email, phone, password_hash, created_at, updated_at) VALUES (?,?,?,?,NOW(),NOW())',
-    [full_name, email, phone || null, password_hash]
+const create = async (data) => {
+  const payload = toCreatePayload(data);
+  await pool.query(
+    `INSERT INTO \`user\`
+      (id, email, userName, phoneNumber, password, createdAt, isVerified, role, locationId)
+     VALUES (?, ?, ?, ?, ?, NOW(6), ?, ?, ?)`,
+    [
+      payload.id,
+      payload.email,
+      payload.userName,
+      payload.phoneNumber,
+      payload.password,
+      payload.isVerified,
+      payload.role,
+      payload.locationId
+    ]
   );
-  return result.insertId;
+  return payload.id;
 };
 
-const createAdmin = async ({ full_name, email, phone, password_hash, is_active }, conn = null) => {
+const createAdmin = async (data, conn = null) => {
   const db = conn || pool;
-  const [result] = await db.query(
-    `INSERT INTO users (full_name, email, phone, password_hash, is_active, created_at, updated_at)
-     VALUES (?,?,?,?,?,NOW(),NOW())`,
-    [full_name, email, phone || null, password_hash, is_active !== undefined ? is_active : true]
+  const payload = toCreatePayload({ ...data, role: data.role || 'admin' });
+  await db.query(
+    `INSERT INTO \`user\`
+      (id, email, userName, phoneNumber, password, createdAt, isVerified, role, locationId)
+     VALUES (?, ?, ?, ?, ?, NOW(6), ?, ?, ?)`,
+    [
+      payload.id,
+      payload.email,
+      payload.userName,
+      payload.phoneNumber,
+      payload.password,
+      payload.isVerified,
+      payload.role,
+      payload.locationId
+    ]
   );
-  return result.insertId;
+  return payload.id;
 };
 
 const listPaginated = async ({ limit, offset, search }) => {
-  const where = ['u.deleted_at IS NULL'];
+  const where = ['1=1'];
   const params = [];
-
   if (search) {
     const term = `%${search}%`;
-    where.push('(u.full_name LIKE ? OR u.email LIKE ? OR u.phone LIKE ? OR CAST(u.id AS CHAR) LIKE ?)');
+    where.push('(u.userName LIKE ? OR u.email LIKE ? OR u.phoneNumber LIKE ? OR u.id LIKE ?)');
     params.push(term, term, term, term);
   }
-
   params.push(limit, offset);
 
   const [rows] = await pool.query(
     `SELECT
        u.id,
-       u.full_name,
+       u.userName AS full_name,
        u.email,
-       u.phone,
-       u.is_active,
-       u.created_at,
-       GROUP_CONCAT(DISTINCT r.name ORDER BY r.name SEPARATOR ', ') AS roles_text
-     FROM users u
-     LEFT JOIN user_roles ur ON ur.user_id = u.id
-     LEFT JOIN roles r ON r.id = ur.role_id
+       u.phoneNumber AS phone,
+       1 AS is_active,
+       u.createdAt AS created_at,
+       u.role AS roles_text
+     FROM \`user\` u
      WHERE ${where.join(' AND ')}
-     GROUP BY u.id
-     ORDER BY u.id DESC
+     ORDER BY u.createdAt DESC
      LIMIT ? OFFSET ?`,
     params
   );
-
-  return rows.map((row) => ({
-    ...row,
-    roles_text: row.roles_text || ''
-  }));
+  return rows;
 };
 
 const countAll = async ({ search }) => {
-  const where = ['deleted_at IS NULL'];
+  const where = ['1=1'];
   const params = [];
-
   if (search) {
     const term = `%${search}%`;
-    where.push('(full_name LIKE ? OR email LIKE ? OR phone LIKE ? OR CAST(id AS CHAR) LIKE ?)');
+    where.push('(userName LIKE ? OR email LIKE ? OR phoneNumber LIKE ? OR id LIKE ?)');
     params.push(term, term, term, term);
   }
 
   const [rows] = await pool.query(
-    `SELECT COUNT(*) as total FROM users WHERE ${where.join(' AND ')}`,
+    `SELECT COUNT(*) AS total FROM \`user\` WHERE ${where.join(' AND ')}`,
     params
   );
-  return rows[0].total;
+  return Number(rows[0].total || 0);
 };
 
 const updateAdmin = async (id, data, conn = null) => {
@@ -116,135 +172,85 @@ const updateAdmin = async (id, data, conn = null) => {
   const fields = [];
   const values = [];
 
-  if (data.full_name !== undefined) {
-    fields.push('full_name = ?');
-    values.push(data.full_name);
+  if (data.full_name !== undefined || data.userName !== undefined) {
+    fields.push('userName = ?');
+    values.push(data.full_name ?? data.userName);
   }
   if (data.email !== undefined) {
     fields.push('email = ?');
     values.push(data.email);
   }
-  if (data.phone !== undefined) {
-    fields.push('phone = ?');
-    values.push(data.phone);
+  if (data.phone !== undefined || data.phoneNumber !== undefined) {
+    fields.push('phoneNumber = ?');
+    values.push(data.phone ?? data.phoneNumber);
   }
-  if (data.password_hash !== undefined) {
-    fields.push('password_hash = ?');
-    values.push(data.password_hash);
+  if (data.password_hash !== undefined || data.password !== undefined) {
+    fields.push('password = ?');
+    values.push(data.password_hash ?? data.password);
   }
-  if (data.is_active !== undefined) {
-    fields.push('is_active = ?');
-    values.push(data.is_active);
+  if (data.isVerified !== undefined) {
+    fields.push('isVerified = ?');
+    values.push(Number(Boolean(data.isVerified)));
+  }
+  if (data.role !== undefined) {
+    fields.push('role = ?');
+    values.push(data.role);
+  }
+  if (data.locationId !== undefined) {
+    fields.push('locationId = ?');
+    values.push(data.locationId);
   }
 
   if (!fields.length) return 0;
 
-  values.push(id);
+  values.push(String(id));
   const [res] = await db.query(
-    `UPDATE users
-     SET ${fields.join(', ')}, updated_at = NOW()
-     WHERE id = ? AND deleted_at IS NULL`,
+    `UPDATE \`user\`
+     SET ${fields.join(', ')}
+     WHERE id = ?`,
     values
   );
   return res.affectedRows;
 };
 
 const updateSelf = async (id, data) => {
-  const fields = [];
-  const values = [];
-
-  if (data.full_name !== undefined) {
-    fields.push('full_name = ?');
-    values.push(data.full_name);
+  // Same real-schema update, but without role escalation by default.
+  const payload = { ...data };
+  if (payload.role !== undefined) {
+    delete payload.role;
   }
-  if (data.email !== undefined) {
-    fields.push('email = ?');
-    values.push(data.email);
-  }
-  if (data.phone !== undefined) {
-    fields.push('phone = ?');
-    values.push(data.phone);
-  }
-  if (data.password_hash !== undefined) {
-    fields.push('password_hash = ?');
-    values.push(data.password_hash);
-  }
-
-  if (!fields.length) return 0;
-
-  values.push(id);
-  const [res] = await pool.query(
-    `UPDATE users
-     SET ${fields.join(', ')}, updated_at = NOW()
-     WHERE id = ? AND deleted_at IS NULL`,
-    values
-  );
-  return res.affectedRows;
+  return updateAdmin(id, payload, pool);
 };
 
 const softDelete = async (id) => {
-  const [res] = await pool.query(
-    'UPDATE users SET deleted_at = NOW(), updated_at = NOW() WHERE id = ? AND deleted_at IS NULL',
-    [id]
-  );
+  // Real table has no deleted_at, so we hard-delete.
+  const [res] = await pool.query('DELETE FROM `user` WHERE id = ?', [String(id)]);
   return res.affectedRows;
 };
 
-const listRoleIds = async (userId) => {
-  const [rows] = await pool.query(
-    'SELECT role_id FROM user_roles WHERE user_id = ? ORDER BY role_id ASC',
-    [userId]
-  );
-  return rows.map((row) => Number(row.role_id));
+const listRoleIds = async () => {
+  // No role mapping tables in real schema.
+  return [];
 };
 
-const replaceRoles = async (userId, roleIds, conn = null) => {
-  const db = conn || pool;
-  await db.query('DELETE FROM user_roles WHERE user_id = ?', [userId]);
-  if (!roleIds || !roleIds.length) return 0;
-
-  const values = roleIds.map((roleId) => [userId, roleId]);
-  const [res] = await db.query('INSERT IGNORE INTO user_roles (user_id, role_id) VALUES ?', [values]);
-  return res.affectedRows;
+const replaceRoles = async () => {
+  // No user_roles table in real schema.
+  return 0;
 };
 
 const getRolesAndPermissions = async (userId) => {
-  const [roles] = await pool.query(
-    'SELECT r.id, r.name FROM roles r JOIN user_roles ur ON ur.role_id = r.id WHERE ur.user_id = ?',
-    [userId]
-  );
-  const [permissions] = await pool.query(
-    `SELECT p.id, p.code
-     FROM permissions p
-     JOIN role_permissions rp ON rp.permission_id = p.id
-     JOIN user_roles ur ON ur.role_id = rp.role_id
-     WHERE ur.user_id = ?`,
-    [userId]
-  );
+  const user = await findById(userId);
+  if (!user) return { roles: [], permissions: [] };
+
+  const roleName = user.role || 'user';
+  const roles = [{ id: roleName, name: roleName }];
+  const permissions = roleName === 'admin' ? [{ id: '*', code: '*' }] : [];
   return { roles, permissions };
 };
 
-const hasPermission = async (userId, code) => {
-  const [adminRows] = await pool.query(
-    `SELECT 1
-     FROM roles r
-     JOIN user_roles ur ON ur.role_id = r.id
-     WHERE ur.user_id = ? AND r.name = 'ADMIN'
-     LIMIT 1`,
-    [userId]
-  );
-  if (adminRows.length) return true;
-
-  const [rows] = await pool.query(
-    `SELECT 1
-     FROM permissions p
-     JOIN role_permissions rp ON rp.permission_id = p.id
-     JOIN user_roles ur ON ur.role_id = rp.role_id
-     WHERE ur.user_id = ? AND p.code = ?
-     LIMIT 1`,
-    [userId, code]
-  );
-  return rows.length > 0;
+const hasPermission = async (userId) => {
+  const user = await findById(userId);
+  return Boolean(user && user.role === 'admin');
 };
 
 module.exports = {
