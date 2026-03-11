@@ -9,6 +9,9 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    concurrency:
+      group: deploy-backend-main
+      cancel-in-progress: false
     env:
       RUN_DB_MIGRATIONS: ${{ secrets.RUN_DB_MIGRATIONS }}
       RUN_ADMIN_SEEDER: ${{ secrets.RUN_ADMIN_SEEDER }}
@@ -47,4 +50,13 @@ jobs:
             fi
 
             pm2 save
-            curl -f http://127.0.0.1:3000/ >/dev/null
+            pm2 describe souqli-api >/dev/null
+            curl -fsS http://127.0.0.1:3000/ >/dev/null
+            api_status=$(curl -s -o /dev/null -w "%{http_code}" -X POST http://127.0.0.1:3000/api/auth/login -H "Content-Type: application/json" -d '{"email":"__healthcheck__","password":"__healthcheck__"}')
+            case "$api_status" in
+              200|400|401) ;;
+              *)
+                echo "ERROR: Backend health check failed with status $api_status"
+                exit 1
+                ;;
+            esac
