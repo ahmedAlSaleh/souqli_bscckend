@@ -1,5 +1,3 @@
-﻿USE souqli;
-
 INSERT INTO permissions (code, description, created_at, updated_at) VALUES
 ('manage_users','Manage users and RBAC',NOW(),NOW()),
 ('manage_orders','Manage orders',NOW(),NOW())

@@ -1,5 +1,3 @@
-﻿USE souqli;
-
 SET @db := DATABASE();
 
 SET @has_store_col := (
