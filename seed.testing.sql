@@ -45,7 +45,7 @@ WHERE r.name = 'ADMIN';
 
 -- Users
 INSERT INTO users (full_name, email, phone, password_hash, is_active, created_at, updated_at) VALUES
-('Admin User', 'admin@souqli.com', '0500000001', '$2b$10$XJpSVH7xmMm2cKdOAKuMOuqlTV.ZpCCoI4YdkMaxOlpDkcbVTYyN.', 1, NOW(), NOW()),
+('Souqli Admin', 'admin@souqli.shop', '0500000001', '$2b$10$XJpSVH7xmMm2cKdOAKuMOuqlTV.ZpCCoI4YdkMaxOlpDkcbVTYyN.', 1, NOW(), NOW()),
 ('Test User', 'user1@souqli.com', '0500000002', '$2b$10$NftUbKik9tnn1QUEUb2Gouwd/x.J34YDQUhtjK.AmaHWUkqNBjm2S', 1, NOW(), NOW()),
 ('Demo User', 'user2@souqli.com', '0500000003', '$2b$10$NftUbKik9tnn1QUEUb2Gouwd/x.J34YDQUhtjK.AmaHWUkqNBjm2S', 1, NOW(), NOW())
 ON DUPLICATE KEY UPDATE
@@ -59,7 +59,7 @@ INSERT IGNORE INTO user_roles (user_id, role_id)
 SELECT u.id, r.id
 FROM users u
 JOIN roles r ON r.name = 'ADMIN'
-WHERE u.email = 'admin@souqli.com';
+WHERE u.email = 'admin@souqli.shop';
 
 -- Categories (main + subcategories)
 INSERT INTO categories (parent_id, name, image_url, slug, is_active, sort_order, created_at, updated_at) VALUES
@@ -286,13 +286,13 @@ ON DUPLICATE KEY UPDATE
 INSERT INTO stores (name, logo_url, whatsapp, address, city, owner_user_id, created_at, updated_at)
 SELECT 'Souqli Main Store', 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab', '+201000000000', 'Main street 1', 'Riyadh', u.id, NOW(), NOW()
 FROM users u
-WHERE u.email = 'admin@souqli.com'
+WHERE u.email = 'admin@souqli.shop'
   AND NOT EXISTS (SELECT 1 FROM stores s WHERE s.name = 'Souqli Main Store');
 
 INSERT INTO stores (name, logo_url, whatsapp, address, city, owner_user_id, created_at, updated_at)
 SELECT 'Souqli East', 'https://images.unsplash.com/photo-1512290923902-8a9f81dc236c', '+201000000111', 'East district', 'Riyadh', u.id, NOW(), NOW()
 FROM users u
-WHERE u.email = 'admin@souqli.com'
+WHERE u.email = 'admin@souqli.shop'
   AND NOT EXISTS (SELECT 1 FROM stores s WHERE s.name = 'Souqli East');
 
 SET @store1_id = (SELECT id FROM stores WHERE name = 'Souqli Main Store' LIMIT 1);
@@ -489,3 +489,190 @@ INSERT INTO product_reviews (product_id, user_id, rating, comment, created_at, u
 (@review_p1, @user2_id, 4, 'Comfortable and clear audio.', NOW(), NOW()),
 (@review_p2, @user1_id, 5, 'Excellent quality and finish.', NOW(), NOW()),
 (@review_p3, @user2_id, 3, 'Good but size runs small.', NOW(), NOW());
+
+-- Product variants
+SET @variant_product_1 = (SELECT id FROM products WHERE slug = 'souqli-pro-earbuds' LIMIT 1);
+SET @variant_product_2 = (SELECT id FROM products WHERE slug = 'classic-leather-bag' LIMIT 1);
+SET @variant_product_3 = (SELECT id FROM products WHERE slug = 'running-shoes-pro' LIMIT 1);
+
+INSERT INTO product_variants (product_id, sku, price, stock, is_active, created_at, updated_at)
+SELECT @variant_product_1, 'SOU-EAR-001-BLK', 60.00, 25, 1, NOW(), NOW()
+WHERE @variant_product_1 IS NOT NULL
+ON DUPLICATE KEY UPDATE price = VALUES(price), stock = VALUES(stock), is_active = VALUES(is_active), updated_at = NOW();
+
+INSERT INTO product_variants (product_id, sku, price, stock, is_active, created_at, updated_at)
+SELECT @variant_product_2, 'SOU-BAG-005-L', 95.00, 12, 1, NOW(), NOW()
+WHERE @variant_product_2 IS NOT NULL
+ON DUPLICATE KEY UPDATE price = VALUES(price), stock = VALUES(stock), is_active = VALUES(is_active), updated_at = NOW();
+
+INSERT INTO product_variants (product_id, sku, price, stock, is_active, created_at, updated_at)
+SELECT @variant_product_3, 'SOU-SHO-006-M', 55.00, 30, 1, NOW(), NOW()
+WHERE @variant_product_3 IS NOT NULL
+ON DUPLICATE KEY UPDATE price = VALUES(price), stock = VALUES(stock), is_active = VALUES(is_active), updated_at = NOW();
+
+SET @variant_earbuds = (SELECT id FROM product_variants WHERE sku = 'SOU-EAR-001-BLK' LIMIT 1);
+SET @variant_bag = (SELECT id FROM product_variants WHERE sku = 'SOU-BAG-005-L' LIMIT 1);
+SET @variant_shoes = (SELECT id FROM product_variants WHERE sku = 'SOU-SHO-006-M' LIMIT 1);
+
+-- Carts + cart items + cart item options
+INSERT INTO carts (user_id, session_id, status, created_at, updated_at)
+SELECT @user1_id, 'seed-user1-cart', 'ACTIVE', NOW(), NOW()
+WHERE @user1_id IS NOT NULL
+  AND NOT EXISTS (SELECT 1 FROM carts WHERE session_id = 'seed-user1-cart');
+
+INSERT INTO carts (user_id, session_id, status, created_at, updated_at)
+SELECT @user2_id, 'seed-user2-cart', 'ACTIVE', NOW(), NOW()
+WHERE @user2_id IS NOT NULL
+  AND NOT EXISTS (SELECT 1 FROM carts WHERE session_id = 'seed-user2-cart');
+
+SET @cart1_id = (SELECT id FROM carts WHERE session_id = 'seed-user1-cart' LIMIT 1);
+SET @cart2_id = (SELECT id FROM carts WHERE session_id = 'seed-user2-cart' LIMIT 1);
+
+DELETE cio
+FROM cart_item_options cio
+JOIN cart_items ci ON ci.id = cio.cart_item_id
+WHERE ci.cart_id IN (@cart1_id, @cart2_id);
+
+DELETE FROM cart_items WHERE cart_id IN (@cart1_id, @cart2_id);
+
+INSERT INTO cart_items (cart_id, product_id, variant_id, options_signature, quantity, unit_price, created_at, updated_at)
+SELECT @cart1_id, @variant_product_1, @variant_earbuds, 'color:black|size:m', 2, 60.00, NOW(), NOW()
+WHERE @cart1_id IS NOT NULL AND @variant_product_1 IS NOT NULL;
+
+INSERT INTO cart_items (cart_id, product_id, variant_id, options_signature, quantity, unit_price, created_at, updated_at)
+SELECT @cart1_id, @variant_product_2, @variant_bag, 'color:brown|size:l', 1, 95.00, NOW(), NOW()
+WHERE @cart1_id IS NOT NULL AND @variant_product_2 IS NOT NULL;
+
+INSERT INTO cart_items (cart_id, product_id, variant_id, options_signature, quantity, unit_price, created_at, updated_at)
+SELECT @cart2_id, @variant_product_3, @variant_shoes, 'color:white|size:m', 1, 55.00, NOW(), NOW()
+WHERE @cart2_id IS NOT NULL AND @variant_product_3 IS NOT NULL;
+
+SET @attr_color_id = (SELECT id FROM attributes WHERE code = 'color' LIMIT 1);
+SET @attr_size_id = (SELECT id FROM attributes WHERE code = 'size' LIMIT 1);
+SET @opt_black = (SELECT id FROM attribute_options WHERE attribute_id = @attr_color_id AND value = 'Black' LIMIT 1);
+SET @opt_white = (SELECT id FROM attribute_options WHERE attribute_id = @attr_color_id AND value = 'White' LIMIT 1);
+SET @opt_brown = (SELECT id FROM attribute_options WHERE attribute_id = @attr_color_id AND value = 'Brown' LIMIT 1);
+SET @opt_size_m = (SELECT id FROM attribute_options WHERE attribute_id = @attr_size_id AND value = 'M' LIMIT 1);
+SET @opt_size_l = (SELECT id FROM attribute_options WHERE attribute_id = @attr_size_id AND value = 'L' LIMIT 1);
+
+SET @ci_earbuds = (SELECT id FROM cart_items WHERE cart_id = @cart1_id AND product_id = @variant_product_1 LIMIT 1);
+SET @ci_bag = (SELECT id FROM cart_items WHERE cart_id = @cart1_id AND product_id = @variant_product_2 LIMIT 1);
+SET @ci_shoes = (SELECT id FROM cart_items WHERE cart_id = @cart2_id AND product_id = @variant_product_3 LIMIT 1);
+
+INSERT INTO cart_item_options (cart_item_id, attribute_id, option_id, created_at)
+SELECT @ci_earbuds, @attr_color_id, @opt_black, NOW()
+WHERE @ci_earbuds IS NOT NULL AND @attr_color_id IS NOT NULL AND @opt_black IS NOT NULL;
+
+INSERT INTO cart_item_options (cart_item_id, attribute_id, option_id, created_at)
+SELECT @ci_earbuds, @attr_size_id, @opt_size_m, NOW()
+WHERE @ci_earbuds IS NOT NULL AND @attr_size_id IS NOT NULL AND @opt_size_m IS NOT NULL;
+
+INSERT INTO cart_item_options (cart_item_id, attribute_id, option_id, created_at)
+SELECT @ci_bag, @attr_color_id, @opt_brown, NOW()
+WHERE @ci_bag IS NOT NULL AND @attr_color_id IS NOT NULL AND @opt_brown IS NOT NULL;
+
+INSERT INTO cart_item_options (cart_item_id, attribute_id, option_id, created_at)
+SELECT @ci_bag, @attr_size_id, @opt_size_l, NOW()
+WHERE @ci_bag IS NOT NULL AND @attr_size_id IS NOT NULL AND @opt_size_l IS NOT NULL;
+
+INSERT INTO cart_item_options (cart_item_id, attribute_id, option_id, created_at)
+SELECT @ci_shoes, @attr_color_id, @opt_white, NOW()
+WHERE @ci_shoes IS NOT NULL AND @attr_color_id IS NOT NULL AND @opt_white IS NOT NULL;
+
+INSERT INTO cart_item_options (cart_item_id, attribute_id, option_id, created_at)
+SELECT @ci_shoes, @attr_size_id, @opt_size_m, NOW()
+WHERE @ci_shoes IS NOT NULL AND @attr_size_id IS NOT NULL AND @opt_size_m IS NOT NULL;
+
+-- Orders + order items + order item options
+SET @status_pending = (SELECT id FROM order_statuses WHERE code = 'PENDING' LIMIT 1);
+SET @status_completed = (SELECT id FROM order_statuses WHERE code = 'COMPLETED' LIMIT 1);
+SET @address_user1 = (SELECT id FROM user_addresses WHERE user_id = @user1_id ORDER BY is_default DESC, id ASC LIMIT 1);
+SET @address_user2 = (SELECT id FROM user_addresses WHERE user_id = @user2_id ORDER BY is_default DESC, id ASC LIMIT 1);
+
+INSERT INTO orders (user_id, status_id, address_id, cart_id, total_amount, currency, notes, created_at, updated_at, deleted_at)
+SELECT @user1_id, @status_pending, @address_user1, @cart1_id, 215.00, 'SYP', 'seed-order-1', NOW(), NOW(), NULL
+WHERE @user1_id IS NOT NULL
+  AND @status_pending IS NOT NULL
+  AND NOT EXISTS (SELECT 1 FROM orders WHERE notes = 'seed-order-1' AND deleted_at IS NULL);
+
+INSERT INTO orders (user_id, status_id, address_id, cart_id, total_amount, currency, notes, created_at, updated_at, deleted_at)
+SELECT @user2_id, @status_completed, @address_user2, @cart2_id, 55.00, 'SYP', 'seed-order-2', NOW(), NOW(), NULL
+WHERE @user2_id IS NOT NULL
+  AND @status_completed IS NOT NULL
+  AND NOT EXISTS (SELECT 1 FROM orders WHERE notes = 'seed-order-2' AND deleted_at IS NULL);
+
+SET @order1_id = (SELECT id FROM orders WHERE notes = 'seed-order-1' LIMIT 1);
+SET @order2_id = (SELECT id FROM orders WHERE notes = 'seed-order-2' LIMIT 1);
+
+DELETE oio
+FROM order_item_options oio
+JOIN order_items oi ON oi.id = oio.order_item_id
+WHERE oi.order_id IN (@order1_id, @order2_id);
+
+DELETE FROM order_items WHERE order_id IN (@order1_id, @order2_id);
+
+INSERT INTO order_items (order_id, product_id, variant_id, store_id, quantity, unit_price, line_total)
+SELECT @order1_id, @variant_product_1, @variant_earbuds, @store1_id, 2, 60.00, 120.00
+WHERE @order1_id IS NOT NULL;
+
+INSERT INTO order_items (order_id, product_id, variant_id, store_id, quantity, unit_price, line_total)
+SELECT @order1_id, @variant_product_2, @variant_bag, @store2_id, 1, 95.00, 95.00
+WHERE @order1_id IS NOT NULL;
+
+INSERT INTO order_items (order_id, product_id, variant_id, store_id, quantity, unit_price, line_total)
+SELECT @order2_id, @variant_product_3, @variant_shoes, @store2_id, 1, 55.00, 55.00
+WHERE @order2_id IS NOT NULL;
+
+SET @oi_earbuds = (SELECT id FROM order_items WHERE order_id = @order1_id AND product_id = @variant_product_1 LIMIT 1);
+SET @oi_bag = (SELECT id FROM order_items WHERE order_id = @order1_id AND product_id = @variant_product_2 LIMIT 1);
+SET @oi_shoes = (SELECT id FROM order_items WHERE order_id = @order2_id AND product_id = @variant_product_3 LIMIT 1);
+
+INSERT INTO order_item_options (order_item_id, attribute_id, option_id, created_at)
+SELECT @oi_earbuds, @attr_color_id, @opt_black, NOW()
+WHERE @oi_earbuds IS NOT NULL AND @attr_color_id IS NOT NULL AND @opt_black IS NOT NULL;
+
+INSERT INTO order_item_options (order_item_id, attribute_id, option_id, created_at)
+SELECT @oi_earbuds, @attr_size_id, @opt_size_m, NOW()
+WHERE @oi_earbuds IS NOT NULL AND @attr_size_id IS NOT NULL AND @opt_size_m IS NOT NULL;
+
+INSERT INTO order_item_options (order_item_id, attribute_id, option_id, created_at)
+SELECT @oi_bag, @attr_color_id, @opt_brown, NOW()
+WHERE @oi_bag IS NOT NULL AND @attr_color_id IS NOT NULL AND @opt_brown IS NOT NULL;
+
+INSERT INTO order_item_options (order_item_id, attribute_id, option_id, created_at)
+SELECT @oi_bag, @attr_size_id, @opt_size_l, NOW()
+WHERE @oi_bag IS NOT NULL AND @attr_size_id IS NOT NULL AND @opt_size_l IS NOT NULL;
+
+INSERT INTO order_item_options (order_item_id, attribute_id, option_id, created_at)
+SELECT @oi_shoes, @attr_color_id, @opt_white, NOW()
+WHERE @oi_shoes IS NOT NULL AND @attr_color_id IS NOT NULL AND @opt_white IS NOT NULL;
+
+INSERT INTO order_item_options (order_item_id, attribute_id, option_id, created_at)
+SELECT @oi_shoes, @attr_size_id, @opt_size_m, NOW()
+WHERE @oi_shoes IS NOT NULL AND @attr_size_id IS NOT NULL AND @opt_size_m IS NOT NULL;
+
+-- Payments
+DELETE FROM payments WHERE transaction_id IN ('seed-txn-0001', 'seed-txn-0002');
+
+INSERT INTO payments (order_id, payment_method, transaction_id, amount, currency, status, created_at)
+SELECT @order1_id, 'CASH', 'seed-txn-0001', 215.00, 'SYP', 'PENDING', NOW()
+WHERE @order1_id IS NOT NULL;
+
+INSERT INTO payments (order_id, payment_method, transaction_id, amount, currency, status, created_at)
+SELECT @order2_id, 'CARD', 'seed-txn-0002', 55.00, 'SYP', 'PAID', NOW()
+WHERE @order2_id IS NOT NULL;
+
+-- Activity logs
+DELETE FROM activity_logs WHERE action LIKE 'SEED_%';
+
+INSERT INTO activity_logs (user_id, action, entity_type, entity_id, meta_json, created_at)
+SELECT @user1_id, 'SEED_LOGIN', 'users', @user1_id, '{"source":"seed.testing.sql"}', NOW()
+WHERE @user1_id IS NOT NULL;
+
+INSERT INTO activity_logs (user_id, action, entity_type, entity_id, meta_json, created_at)
+SELECT @user1_id, 'SEED_ADD_TO_CART', 'cart_items', @ci_earbuds, '{"qty":2}', NOW()
+WHERE @user1_id IS NOT NULL AND @ci_earbuds IS NOT NULL;
+
+INSERT INTO activity_logs (user_id, action, entity_type, entity_id, meta_json, created_at)
+SELECT @user1_id, 'SEED_PLACE_ORDER', 'orders', @order1_id, '{"notes":"seed-order-1"}', NOW()
+WHERE @user1_id IS NOT NULL AND @order1_id IS NOT NULL;
