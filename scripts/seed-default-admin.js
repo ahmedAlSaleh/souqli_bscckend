@@ -1,53 +1,82 @@
 require('dotenv').config();
 
-const { randomUUID } = require('crypto');
 const bcrypt = require('bcrypt');
 const pool = require('../src/config/db');
 
 const DEFAULT_ADMIN = {
   email: 'admin@souqli.shop',
   password: 'Admin12345!',
-  userName: 'Souqli Admin',
-  role: 'admin'
+  full_name: 'Souqli Admin',
+  role_name: 'ADMIN'
 };
 
 const seedDefaultAdmin = async () => {
   const passwordHash = await bcrypt.hash(DEFAULT_ADMIN.password, 10);
+  const conn = await pool.getConnection();
 
-  const [existing] = await pool.query(
-    'SELECT id FROM `user` WHERE email = ? LIMIT 1',
-    [DEFAULT_ADMIN.email]
-  );
+  try {
+    await conn.beginTransaction();
 
-  if (existing.length) {
-    const adminId = existing[0].id;
-    await pool.query(
-      `UPDATE \`user\`
-       SET userName = ?, password = ?, role = ?, isVerified = 1
-       WHERE id = ?`,
-      [DEFAULT_ADMIN.userName, passwordHash, DEFAULT_ADMIN.role, adminId]
+    await conn.query(
+      `INSERT INTO roles (name, description, created_at, updated_at)
+       VALUES (?, ?, NOW(), NOW())
+       ON DUPLICATE KEY UPDATE updated_at = NOW()`,
+      [DEFAULT_ADMIN.role_name, 'Full access']
     );
-    return { created: false, id: adminId };
+
+    const [roleRows] = await conn.query('SELECT id FROM roles WHERE name = ? LIMIT 1', [
+      DEFAULT_ADMIN.role_name
+    ]);
+    const roleId = roleRows[0]?.id;
+    if (!roleId) {
+      throw new Error(`Role ${DEFAULT_ADMIN.role_name} not found`);
+    }
+
+    const [existing] = await conn.query(
+      'SELECT id FROM users WHERE email = ? LIMIT 1',
+      [DEFAULT_ADMIN.email]
+    );
+
+    let userId;
+    let created = false;
+
+    if (existing.length) {
+      userId = existing[0].id;
+      await conn.query(
+        `UPDATE users
+         SET full_name = ?,
+             password_hash = ?,
+             is_active = 1,
+             email_verified_at = COALESCE(email_verified_at, NOW()),
+             deleted_at = NULL,
+             updated_at = NOW()
+         WHERE id = ?`,
+        [DEFAULT_ADMIN.full_name, passwordHash, userId]
+      );
+    } else {
+      const [result] = await conn.query(
+        `INSERT INTO users
+          (full_name, email, password_hash, email_verified_at, is_active, created_at, updated_at)
+         VALUES (?, ?, ?, NOW(), 1, NOW(), NOW())`,
+        [DEFAULT_ADMIN.full_name, DEFAULT_ADMIN.email, passwordHash]
+      );
+      userId = result.insertId;
+      created = true;
+    }
+
+    await conn.query(
+      'INSERT IGNORE INTO user_roles (user_id, role_id) VALUES (?, ?)',
+      [userId, roleId]
+    );
+
+    await conn.commit();
+    return { created, id: userId };
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
   }
-
-  const id = randomUUID();
-  await pool.query(
-    `INSERT INTO \`user\`
-      (id, email, userName, phoneNumber, password, createdAt, isVerified, role, locationId)
-     VALUES (?, ?, ?, ?, ?, NOW(6), ?, ?, ?)`,
-    [
-      id,
-      DEFAULT_ADMIN.email,
-      DEFAULT_ADMIN.userName,
-      null,
-      passwordHash,
-      1,
-      DEFAULT_ADMIN.role,
-      null
-    ]
-  );
-
-  return { created: true, id };
 };
 
 const main = async () => {
