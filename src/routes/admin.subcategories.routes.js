@@ -54,4 +54,32 @@ router.delete(
   controller.removeAttribute
 );
 
+router.get(
+  '/:id/size-chart',
+  [param('id').isInt()],
+  validate,
+  requirePermission(PERM.MANAGE_ATTRIBUTES),
+  controller.listSizeChart
+);
+
+router.put(
+  '/:id/size-chart',
+  [
+    param('id').isInt(),
+    body('items').isArray(),
+    body('items.*.size_code').trim().notEmpty(),
+    body('items.*.chest_cm').optional({ nullable: true }).isString(),
+    body('items.*.waist_cm').optional({ nullable: true }).isString(),
+    body('items.*.hip_cm').optional({ nullable: true }).isString(),
+    body('items.*.shoulder_width_cm').optional({ nullable: true }).isString(),
+    body('items.*.sleeve_length_cm').optional({ nullable: true }).isString(),
+    body('items.*.shirt_length_cm').optional({ nullable: true }).isString(),
+    body('items.*.height_cm').optional({ nullable: true }).isString(),
+    body('items.*.sort_order').optional().isInt()
+  ],
+  validate,
+  requirePermission(PERM.MANAGE_ATTRIBUTES),
+  controller.replaceSizeChart
+);
+
 module.exports = router;

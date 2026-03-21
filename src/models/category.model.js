@@ -110,21 +110,24 @@ const softDelete = async (id) => {
 
 const listForTree = async () => {
   const [rows] = await pool.query(
-    `SELECT c.*,
-      (
-        SELECT COUNT(*)
-        FROM products p
-        WHERE p.deleted_at IS NULL
-          AND (
-            p.category_id = c.id OR
-            p.category_id IN (
-              SELECT id FROM categories WHERE parent_id = c.id AND deleted_at IS NULL
-            )
-          )
-      ) AS product_count
-     FROM categories c
-     WHERE c.deleted_at IS NULL AND c.is_active = 1
-     ORDER BY c.sort_order ASC, c.name ASC`
+    `WITH RECURSIVE category_scope AS (
+        SELECT c.id AS root_id, c.id AS category_id
+        FROM categories c
+        WHERE c.deleted_at IS NULL AND c.is_active = 1
+        UNION ALL
+        SELECT scope.root_id, child.id
+        FROM category_scope scope
+        JOIN categories child ON child.parent_id = scope.category_id
+        WHERE child.deleted_at IS NULL AND child.is_active = 1
+      )
+      SELECT c.*,
+             COUNT(DISTINCT p.id) AS product_count
+      FROM categories c
+      LEFT JOIN category_scope scope ON scope.root_id = c.id
+      LEFT JOIN products p ON p.category_id = scope.category_id AND p.deleted_at IS NULL
+      WHERE c.deleted_at IS NULL AND c.is_active = 1
+      GROUP BY c.id
+      ORDER BY c.sort_order ASC, c.name ASC`
   );
   return rows;
 };

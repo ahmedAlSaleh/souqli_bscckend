@@ -1,6 +1,8 @@
 const CategoryModel = require('../../models/category.model');
 const AttributeModel = require('../../models/attribute.model');
 const CategoryAttributeModel = require('../../models/category-attribute.model');
+const SizeChartModel = require('../../models/size-chart.model');
+const SizeChartService = require('../../services/size-chart.service');
 const ActivityService = require('../../services/activity.service');
 const { parsePagination, buildPagination } = require('../../utils/pagination');
 const { ok, fail } = require('../../utils/response');
@@ -109,10 +111,50 @@ const removeAttribute = async (req, res, next) => {
   }
 };
 
+const listSizeChart = async (req, res, next) => {
+  try {
+    const category = await CategoryModel.findById(req.params.id);
+    if (!category) return fail(res, 'Subcategory not found', null, 404);
+    if (!category.parent_id) return fail(res, 'Category is not a subcategory', null, 400);
+
+    const items = await SizeChartModel.listByCategoryId(req.params.id);
+    return ok(res, 'Subcategory size chart', {
+      category_id: Number(req.params.id),
+      items
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+const replaceSizeChart = async (req, res, next) => {
+  try {
+    const category = await CategoryModel.findById(req.params.id);
+    if (!category) return fail(res, 'Subcategory not found', null, 404);
+    if (!category.parent_id) return fail(res, 'Category is not a subcategory', null, 400);
+
+    const count = await SizeChartService.replaceForCategory(Number(req.params.id), req.body.items || []);
+
+    await ActivityService.log(req.user.id, 'UPSERT_SIZE_CHART', 'size_charts', null, {
+      category_id: Number(req.params.id),
+      rows: count
+    });
+
+    return ok(res, 'Size chart updated', {
+      category_id: Number(req.params.id),
+      count
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   list,
   listAttributes,
   attachAttribute,
   updateAttribute,
-  removeAttribute
+  removeAttribute,
+  listSizeChart,
+  replaceSizeChart
 };

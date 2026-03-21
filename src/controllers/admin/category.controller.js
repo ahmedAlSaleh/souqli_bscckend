@@ -3,6 +3,16 @@ const ActivityService = require('../../services/activity.service');
 const { parsePagination, buildPagination } = require('../../utils/pagination');
 const { ok, fail } = require('../../utils/response');
 
+const isDescendant = async (candidateParentId, categoryId) => {
+  let cursor = await CategoryModel.findById(candidateParentId);
+  while (cursor) {
+    if (Number(cursor.id) === Number(categoryId)) return true;
+    if (!cursor.parent_id) return false;
+    cursor = await CategoryModel.findById(cursor.parent_id);
+  }
+  return false;
+};
+
 const list = async (req, res, next) => {
   try {
     const { page, limit, offset } = parsePagination(req.query);
@@ -31,9 +41,6 @@ const create = async (req, res, next) => {
     if (req.body.parent_id) {
       const parent = await CategoryModel.findById(req.body.parent_id);
       if (!parent) return fail(res, 'Parent category not found', null, 400);
-      if (parent.parent_id) {
-        return fail(res, 'Parent category must be a main category', null, 400);
-      }
     }
     const id = await CategoryModel.create(req.body);
     await ActivityService.log(req.user.id, 'CREATE_CATEGORY', 'categories', id, {
@@ -47,6 +54,9 @@ const create = async (req, res, next) => {
 
 const update = async (req, res, next) => {
   try {
+    const current = await CategoryModel.findById(req.params.id);
+    if (!current) return fail(res, 'Category not found', null, 404);
+
     if (req.body.parent_id !== undefined) {
       if (Number(req.body.parent_id) === Number(req.params.id)) {
         return fail(res, 'Category cannot be its own parent', null, 400);
@@ -54,8 +64,9 @@ const update = async (req, res, next) => {
       if (req.body.parent_id) {
         const parent = await CategoryModel.findById(req.body.parent_id);
         if (!parent) return fail(res, 'Parent category not found', null, 400);
-        if (parent.parent_id) {
-          return fail(res, 'Parent category must be a main category', null, 400);
+        const cyclic = await isDescendant(req.body.parent_id, req.params.id);
+        if (cyclic) {
+          return fail(res, 'Parent category cannot be a child of this category', null, 400);
         }
       }
     }
