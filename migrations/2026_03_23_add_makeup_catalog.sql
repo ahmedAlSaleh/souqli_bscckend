@@ -278,6 +278,16 @@ AND NOT EXISTS (
 );
 
 INSERT INTO category_attributes (category_id, attribute_id, is_required, sort_order)
+SELECT c.id, @attr_volume, 0, 40
+FROM categories c
+WHERE c.slug IN ('face-foundation','face-concealer','nail-polish')
+AND @attr_volume IS NOT NULL
+AND NOT EXISTS (
+  SELECT 1 FROM category_attributes ca
+  WHERE ca.category_id = c.id AND ca.attribute_id = @attr_volume
+);
+
+INSERT INTO category_attributes (category_id, attribute_id, is_required, sort_order)
 SELECT c.id, @attr_spf, 1, 30
 FROM categories c
 WHERE c.slug IN ('skincare-sunscreen')
