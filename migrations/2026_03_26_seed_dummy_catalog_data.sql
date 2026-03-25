@@ -75,7 +75,7 @@ INSERT INTO tmp_dummy_templates (sub_slug, product_prefix, slug_prefix, base_pri
 ('eye-eyeliner', 'Eyeliner', 'demo-eye-eyeliner', 31000, 'https://images.unsplash.com/photo-1629198688000-71f23e745b6e?w=1000&q=80'),
 ('eye-pencil', 'Eye Pencil', 'demo-eye-pencil', 26000, 'https://images.unsplash.com/photo-1631214540242-0a5f3d4dbe3d?w=1000&q=80'),
 ('eye-eyeshadow', 'Eyeshadow', 'demo-eye-eyeshadow', 47000, 'https://images.unsplash.com/photo-1617897903246-719242758050?w=1000&q=80'),
-('eye-lipstick', 'Lipstick', 'demo-eye-lipstick', 35000, 'https://images.unsplash.com/photo-1586495777744-4413f21062fa?w=1000&q=80'),
+('lip-lipstick', 'Lipstick', 'demo-lip-lipstick', 35000, 'https://images.unsplash.com/photo-1586495777744-4413f21062fa?w=1000&q=80'),
 ('lip-gloss', 'Lip Gloss', 'demo-lip-gloss', 29000, 'https://images.unsplash.com/photo-1631730486572-6b11f4f5c41d?w=1000&q=80'),
 ('lip-moisturizing-cream', 'Lip Cream', 'demo-lip-cream', 28000, 'https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?w=1000&q=80'),
 ('skincare-serum', 'Serum', 'demo-skincare-serum', 78000, 'https://images.unsplash.com/photo-1571781926291-c477ebfd024b?w=1000&q=80'),
