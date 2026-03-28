@@ -18,6 +18,7 @@ const listStore = async ({
   const where = ['p.deleted_at IS NULL', 'p.is_active = 1'];
   const params = [];
   let joins = '';
+  let categoryScopeCte = '';
 
   if (search) {
     where.push('(p.name LIKE ? OR p.description LIKE ?)');
@@ -26,8 +27,20 @@ const listStore = async ({
   }
 
   if (categoryId) {
-    where.push('p.category_id = ?');
-    params.push(categoryId);
+    categoryScopeCte = `
+      WITH RECURSIVE category_scope AS (
+        SELECT id
+        FROM categories
+        WHERE id = ?
+          AND deleted_at IS NULL
+        UNION ALL
+        SELECT c.id
+        FROM categories c
+        JOIN category_scope cs ON c.parent_id = cs.id
+        WHERE c.deleted_at IS NULL
+      )`;
+    where.push('p.category_id IN (SELECT id FROM category_scope)');
+    params.push(Number(categoryId));
   }
 
   if (minPrice !== undefined) {
@@ -64,6 +77,7 @@ const listStore = async ({
   if (sort === 'newest') orderBy = 'p.created_at DESC';
 
   const sql = `
+    ${categoryScopeCte}
     SELECT DISTINCT p.id, p.name, p.slug, p.base_price, p.currency, p.category_id,
            p.is_active, p.is_new, p.is_deal, p.deal_price, p.is_popular, p.created_at,
            COALESCE(pr.rating_avg, 0) AS rating_avg,
@@ -101,36 +115,49 @@ const countStore = async ({
   const where = ['p.deleted_at IS NULL', 'p.is_active = 1'];
   const params = [];
   let joins = '';
+  let categoryScopeCte = '';
 
   if (search) {
-    where.push('(name LIKE ? OR description LIKE ?)');
+    where.push('(p.name LIKE ? OR p.description LIKE ?)');
     const term = `%${search}%`;
     params.push(term, term);
   }
 
   if (categoryId) {
-    where.push('category_id = ?');
-    params.push(categoryId);
+    categoryScopeCte = `
+      WITH RECURSIVE category_scope AS (
+        SELECT id
+        FROM categories
+        WHERE id = ?
+          AND deleted_at IS NULL
+        UNION ALL
+        SELECT c.id
+        FROM categories c
+        JOIN category_scope cs ON c.parent_id = cs.id
+        WHERE c.deleted_at IS NULL
+      )`;
+    where.push('p.category_id IN (SELECT id FROM category_scope)');
+    params.push(Number(categoryId));
   }
 
   if (minPrice !== undefined) {
-    where.push('base_price >= ?');
+    where.push('p.base_price >= ?');
     params.push(Number(minPrice));
   }
   if (maxPrice !== undefined) {
-    where.push('base_price <= ?');
+    where.push('p.base_price <= ?');
     params.push(Number(maxPrice));
   }
   if (isNew === true) {
-    where.push('is_new = 1');
+    where.push('p.is_new = 1');
   }
   if (isPopular === true) {
-    where.push('is_popular = 1');
+    where.push('p.is_popular = 1');
   }
   if (isDeal === true) {
-    where.push('is_deal = 1');
-    where.push('(deal_start_at IS NULL OR deal_start_at <= NOW())');
-    where.push('(deal_end_at IS NULL OR deal_end_at >= NOW())');
+    where.push('p.is_deal = 1');
+    where.push('(p.deal_start_at IS NULL OR p.deal_start_at <= NOW())');
+    where.push('(p.deal_end_at IS NULL OR p.deal_end_at >= NOW())');
   }
 
   if (city) {
@@ -142,7 +169,8 @@ const countStore = async ({
   }
 
   const [rows] = await pool.query(
-    `SELECT COUNT(DISTINCT p.id) AS total
+    `${categoryScopeCte}
+     SELECT COUNT(DISTINCT p.id) AS total
      FROM products p
      ${joins}
      WHERE ${where.join(' AND ')}`,
