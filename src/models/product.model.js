@@ -181,7 +181,13 @@ const countStore = async ({
 
 const listAdmin = async ({ limit, offset }) => {
   const [rows] = await pool.query(
-    'SELECT * FROM products WHERE deleted_at IS NULL ORDER BY id DESC LIMIT ? OFFSET ?',
+    `SELECT p.*, pi.url AS primary_image
+     FROM products p
+     LEFT JOIN product_images pi
+       ON pi.product_id = p.id AND pi.is_primary = 1 AND pi.deleted_at IS NULL
+     WHERE p.deleted_at IS NULL
+     ORDER BY p.id DESC
+     LIMIT ? OFFSET ?`,
     [limit, offset]
   );
   return rows;

@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
+const path = require('path');
 
 const authRoutes = require('./routes/auth.routes');
 const adminCategoryRoutes = require('./routes/admin.categories.routes');
@@ -16,6 +17,7 @@ const adminOrderRoutes = require('./routes/admin.orders.routes');
 const adminPaymentRoutes = require('./routes/admin.payments.routes');
 const adminCartRoutes = require('./routes/admin.carts.routes');
 const adminHomeBannerRoutes = require('./routes/admin.home-banners.routes');
+const adminUploadRoutes = require('./routes/admin.uploads.routes');
 const storeCategoryRoutes = require('./routes/store.categories.routes');
 const storeProductRoutes = require('./routes/store.products.routes');
 const storeHomeRoutes = require('./routes/store.home.routes');
@@ -34,6 +36,7 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(morgan('dev'));
+app.use('/api/uploads', express.static(path.join(__dirname, '..', 'public', 'uploads')));
 
 app.get('/', (req, res) => {
   res.json({ success: true, message: 'Souqli API', data: null, errors: null });
@@ -54,6 +57,7 @@ app.use('/api/admin/orders', adminOrderRoutes);
 app.use('/api/admin/payments', adminPaymentRoutes);
 app.use('/api/admin/carts', adminCartRoutes);
 app.use('/api/admin/home-banners', adminHomeBannerRoutes);
+app.use('/api/admin/uploads', adminUploadRoutes);
 
 app.use('/api/categories', storeCategoryRoutes);
 app.use('/api/products', storeProductRoutes);
