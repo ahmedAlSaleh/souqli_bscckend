@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Souqli - Account Deletion Request</title>
+    <style>
+      :root {
+        --primary: #007a3d;
+        --text: #111827;
+        --muted: #6b7280;
+        --bg: #f6f7f9;
+        --card: #ffffff;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        line-height: 1.6;
+      }
+      .container {
+        max-width: 840px;
+        margin: 32px auto;
+        padding: 0 16px;
+      }
+      .card {
+        background: var(--card);
+        border-radius: 14px;
+        padding: 24px;
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
+      }
+      h1, h2 {
+        margin-top: 0;
+      }
+      .tag {
+        display: inline-block;
+        background: #e7f6ee;
+        color: var(--primary);
+        border: 1px solid #c6ebd6;
+        border-radius: 999px;
+        padding: 6px 12px;
+        font-size: 13px;
+        margin-bottom: 14px;
+      }
+      ol {
+        padding-left: 20px;
+      }
+      a.button {
+        display: inline-block;
+        margin-top: 12px;
+        background: var(--primary);
+        color: #fff;
+        text-decoration: none;
+        border-radius: 10px;
+        padding: 12px 16px;
+        font-weight: 600;
+      }
+      button.button {
+        border: 0;
+        cursor: pointer;
+      }
+      .input,
+      .textarea {
+        width: 100%;
+        margin-top: 6px;
+        margin-bottom: 14px;
+        border: 1px solid #d1d5db;
+        border-radius: 10px;
+        padding: 10px 12px;
+        font-size: 14px;
+      }
+      .textarea {
+        min-height: 120px;
+        resize: vertical;
+      }
+      .row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+      @media (max-width: 700px) {
+        .row {
+          grid-template-columns: 1fr;
+        }
+      }
+      .status {
+        display: none;
+        margin-top: 10px;
+        border-radius: 10px;
+        padding: 10px 12px;
+        font-size: 14px;
+      }
+      .status.ok {
+        display: block;
+        background: #e7f6ee;
+        color: #0f5132;
+        border: 1px solid #c6ebd6;
+      }
+      .status.err {
+        display: block;
+        background: #fdecec;
+        color: #842029;
+        border: 1px solid #f5c2c7;
+      }
+      .muted {
+        color: var(--muted);
+      }
+      .divider {
+        border-top: 1px solid #e5e7eb;
+        margin: 24px 0;
+      }
+      code {
+        background: #f1f5f9;
+        padding: 2px 6px;
+        border-radius: 6px;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="container">
+      <section class="card">
+        <span class="tag">Souqli Account Deletion</span>
+        <h1>Request Account & Data Deletion</h1>
+        <p>
+          If you created an account in the Souqli app, you can request deletion of your account
+          and associated personal data from this page.
+        </p>
+
+        <h2>Submit deletion request</h2>
+        <form id="deletionForm">
+          <label for="full_name">Full name *</label>
+          <input id="full_name" name="full_name" class="input" required maxlength="120" />
+
+          <div class="row">
+            <div>
+              <label for="email">Email (one of email/phone is required)</label>
+              <input id="email" name="email" type="email" class="input" maxlength="190" />
+            </div>
+            <div>
+              <label for="phone">Phone (one of email/phone is required)</label>
+              <input id="phone" name="phone" class="input" maxlength="30" />
+            </div>
+          </div>
+
+          <label for="reason">Reason *</label>
+          <textarea id="reason" name="reason" class="textarea" required maxlength="1000"></textarea>
+
+          <button type="submit" class="button">Submit Request</button>
+          <div id="status" class="status"></div>
+        </form>
+
+        <div class="divider"></div>
+
+        <h2>What will be deleted</h2>
+        <p>
+          We will delete your account profile and related personal data associated with your Souqli
+          account, according to our legal and operational obligations.
+        </p>
+        <p class="muted">
+          Note: Some records may be retained for a limited period when required by law, fraud
+          prevention, accounting, or dispute resolution.
+        </p>
+
+        <div class="divider"></div>
+
+        <h2>طلب حذف الحساب (العربية)</h2>
+        <p>
+          لحذف حسابك وبياناتك المرتبطة بتطبيق سوقلي، أرسل طلب حذف إلى البريد:
+          <strong>support@souqli.shop</strong>
+        </p>
+        <p class="muted">
+          يرجى كتابة بريدك أو رقم هاتفك المسجل في التطبيق، وسيتم تنفيذ الطلب وفق سياسة
+          الخصوصية والمتطلبات القانونية.
+        </p>
+      </section>
+    </main>
+    <script>
+      const form = document.getElementById('deletionForm');
+      const statusBox = document.getElementById('status');
+
+      const setStatus = (type, message) => {
+        statusBox.className = `status ${type}`;
+        statusBox.textContent = message;
+      };
+
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+
+        const payload = {
+          full_name: form.full_name.value.trim(),
+          email: form.email.value.trim(),
+          phone: form.phone.value.trim(),
+          reason: form.reason.value.trim(),
+          source: 'play_store_form'
+        };
+
+        if (!payload.email && !payload.phone) {
+          setStatus('err', 'Please provide email or phone.');
+          return;
+        }
+
+        try {
+          const response = await fetch('/api/account-deletion/requests', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+
+          const data = await response.json();
+          if (!response.ok || data.success !== true) {
+            setStatus('err', data.message || 'Failed to submit deletion request.');
+            return;
+          }
+
+          form.reset();
+          setStatus('ok', 'Your deletion request was submitted successfully.');
+        } catch (error) {
+          setStatus('err', 'Connection error. Please try again.');
+        }
+      });
+    </script>
+  </body>
+</html>

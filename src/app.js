@@ -18,6 +18,7 @@ const adminPaymentRoutes = require('./routes/admin.payments.routes');
 const adminCartRoutes = require('./routes/admin.carts.routes');
 const adminHomeBannerRoutes = require('./routes/admin.home-banners.routes');
 const adminUploadRoutes = require('./routes/admin.uploads.routes');
+const accountDeletionRoutes = require('./routes/account-deletion.routes');
 const storeCategoryRoutes = require('./routes/store.categories.routes');
 const storeProductRoutes = require('./routes/store.products.routes');
 const storeHomeRoutes = require('./routes/store.home.routes');
@@ -41,6 +42,7 @@ app.use('/api/uploads', express.static(path.join(__dirname, '..', 'public', 'upl
 app.get('/', (req, res) => {
   res.json({ success: true, message: 'Souqli API', data: null, errors: null });
 });
+app.use('/api/account-deletion', accountDeletionRoutes);
 
 app.use('/api/auth', authRoutes);
 
